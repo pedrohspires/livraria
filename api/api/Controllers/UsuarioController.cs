@@ -17,18 +17,26 @@ namespace api.Controllers
             _usuarioRepository = usuarioRepository;
         }
 
-        [HttpGet]
-        public IActionResult Login()
+        [HttpPost("Login")]
+        public async Task<ActionResult<UsuarioDto>> Login([FromBody]UsuarioLoginDto usuario)
         {
-            return Ok();
+            try
+            {
+                UsuarioDto usuarioLogado = await _usuarioRepository.Login(usuario);
+                return Ok(usuarioLogado);
+            }
+            catch(Exception ex)
+            {
+                return BadRequest("Erro ao executar login: " + ex.Message);
+            }
         }
 
-        [HttpPost]
+        [HttpPost("SignIn")]
         public async Task<ActionResult<Usuario>> SignIn([FromBody]UsuarioCreateDto usuario)
         {
             try
             {
-                Usuario novoUsuario = await _usuarioRepository.SignIn(usuario);
+                UsuarioDto novoUsuario = await _usuarioRepository.SignIn(usuario);
 
                 return Ok(novoUsuario);
             }

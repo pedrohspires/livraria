@@ -4,6 +4,7 @@ using api.Models;
 using api.Repository.Interfaces;
 using api.Utils;
 using Microsoft.AspNetCore.Cryptography.KeyDerivation;
+using Microsoft.EntityFrameworkCore;
 
 namespace api.Repository.Implementations
 {
@@ -18,12 +19,7 @@ namespace api.Repository.Implementations
             _validaUsuario = new ValidaUsuario();
         }
 
-        public Task<Usuario> Login(UsuarioLoginDto usuario)
-        {
-            throw new NotImplementedException();
-        }
-
-        public async Task<Usuario> SignIn(UsuarioCreateDto usuario)
+        public async Task<UsuarioDto> SignIn(UsuarioCreateDto usuario)
         {
             Usuario novoUsuario = new Usuario();
 
@@ -49,11 +45,44 @@ namespace api.Repository.Implementations
             await _dbContext.Usuarios.AddAsync(novoUsuario);
             _dbContext.SaveChanges();
 
-            // Limpa dados sensíveis para retornar
-            novoUsuario.Senha = null;
-            novoUsuario.Salt = null;
+            return UsuarioParaUsuarioDto(novoUsuario);
+        }
 
-            return novoUsuario;
+        public async Task<UsuarioDto> Login(UsuarioLoginDto usuario)
+        {
+            UsuarioDto usuarioLogado = new UsuarioDto();
+            Usuario? usuarioCadastrado = await _dbContext.Usuarios.Where(x => x.Email == usuario.Email).FirstOrDefaultAsync();
+
+            if (usuarioCadastrado == null)
+                throw new Exception("Email ou senha incorreta!");
+
+            string hashSenha = Convert.ToBase64String(KeyDerivation.Pbkdf2(
+                password: usuario.Senha!,
+                salt: usuarioCadastrado.Salt,
+                prf: KeyDerivationPrf.HMACSHA256,
+                iterationCount: 100000,
+                numBytesRequested: 256 / 8)
+            );
+
+            if (usuarioCadastrado.Senha.Equals(hashSenha))
+                return UsuarioParaUsuarioDto(usuarioCadastrado);
+            else throw new Exception("Email ou senha incorreta!");
+        }
+
+        private UsuarioDto UsuarioParaUsuarioDto(Usuario usuario)
+        {
+            UsuarioDto usuarioDto = new UsuarioDto();
+
+            usuarioDto.Id = usuario.Id;
+            usuarioDto.Nome = usuario.Nome;
+            usuarioDto.Sobrenome = usuario.Sobrenome;
+            usuarioDto.Email = usuario.Email;
+            usuarioDto.DataCadastro = usuario.DataCadastro;
+            usuarioDto.DataEdicao = usuario.DataEdicao;
+            usuarioDto.EmailConfirmado = usuario.EmailConfirmado;
+            usuarioDto.DataEmailConfirmado = usuario.DataEmailConfirmado;
+
+            return usuarioDto;
         }
     }
 }
